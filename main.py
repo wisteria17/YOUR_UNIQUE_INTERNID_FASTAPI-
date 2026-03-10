@@ -95,3 +95,23 @@ def get_deals():
         "best_deal": cheapest,
         "premium_pick": expensive
     }
+from fastapi import Query
+@app.get("/products/filter")
+def filter_products(
+    min_price: int = Query(None),
+    max_price: int = Query(None),
+    category: str = Query(None)
+):
+
+    result = products
+
+    if category:
+        result = [p for p in result if p["category"] == category]
+
+    if max_price:
+        result = [p for p in result if p["price"] <= max_price]
+
+    if min_price:
+        result = [p for p in result if p["price"] >= min_price]
+
+    return result
