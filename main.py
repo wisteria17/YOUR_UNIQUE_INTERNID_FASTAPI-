@@ -266,3 +266,102 @@ def product_audit():
             "price": priciest["price"]
         }
     }
+from fastapi import HTTPException
+
+cart = []
+orders = []
+
+
+def find_product(product_id):
+    for p in products:
+        if p["id"] == product_id:
+            return p
+    return None
+
+
+@app.post("/cart/add")
+def add_to_cart(product_id: int, quantity: int = 1):
+
+    product = find_product(product_id)
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if not product["in_stock"]:
+        raise HTTPException(status_code=400, detail=f"{product['name']} is out of stock")
+
+    for item in cart:
+        if item["product_id"] == product_id:
+            item["quantity"] += quantity
+            item["subtotal"] = item["quantity"] * product["price"]
+            return {"message": "Cart updated", "cart_item": item}
+
+    new_item = {
+        "product_id": product_id,
+        "product_name": product["name"],
+        "quantity": quantity,
+        "unit_price": product["price"],
+        "subtotal": quantity * product["price"]
+    }
+
+    cart.append(new_item)
+
+    return {"message": "Added to cart", "cart_item": new_item}
+
+
+@app.get("/cart")
+def view_cart():
+
+    if not cart:
+        return {"message": "Cart is empty"}
+
+    total = sum(item["subtotal"] for item in cart)
+
+    return {
+        "items": cart,
+        "item_count": len(cart),
+        "grand_total": total
+    }
+
+
+@app.delete("/cart/{product_id}")
+def remove_from_cart(product_id: int):
+
+    for item in cart:
+        if item["product_id"] == product_id:
+            cart.remove(item)
+            return {"message": "Item removed"}
+
+    raise HTTPException(status_code=404, detail="Item not in cart")
+
+
+@app.post("/cart/checkout")
+def checkout(customer_name: str, delivery_address: str):
+
+    if not cart:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    total = 0
+
+    for item in cart:
+        order = {
+            "customer_name": customer_name,
+            "product": item["product_name"],
+            "quantity": item["quantity"],
+            "total_price": item["subtotal"]
+        }
+        orders.append(order)
+        total += item["subtotal"]
+
+    cart.clear()
+
+    return {
+        "message": "Order placed",
+        "orders_placed": orders,
+        "grand_total": total
+    }
+
+
+@app.get("/orders")
+def get_orders():
+    return {"orders": orders, "total_orders": len(orders)}
